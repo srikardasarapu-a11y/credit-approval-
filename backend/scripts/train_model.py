@@ -27,7 +27,7 @@ MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models_ml", "credit_
 DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "training_data.csv")
 
 
-def generate_synthetic_data(n: int = 2000) -> pd.DataFrame:
+def generate_synthetic_data(n: int = 10000) -> pd.DataFrame:
     """Generate synthetic training data with realistic financial ratios."""
     np.random.seed(42)
 
@@ -67,8 +67,8 @@ def train():
         logger.info(f"Loading training data from {DATA_PATH}")
         df = pd.read_csv(DATA_PATH)
     else:
-        logger.info("Generating synthetic training data (2000 samples)...")
-        df = generate_synthetic_data(2000)
+        logger.info("Generating synthetic training data (10000 samples)...")
+        df = generate_synthetic_data(10000)
         os.makedirs(os.path.dirname(DATA_PATH), exist_ok=True)
         df.to_csv(DATA_PATH, index=False)
         logger.info(f"Saved to {DATA_PATH}")
@@ -79,9 +79,9 @@ def train():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
     model = XGBClassifier(
-        n_estimators=300,
-        max_depth=5,
-        learning_rate=0.08,
+        n_estimators=1000,
+        max_depth=8,
+        learning_rate=0.05,
         subsample=0.8,
         colsample_bytree=0.8,
         use_label_encoder=False,
