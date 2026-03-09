@@ -10,7 +10,7 @@ alembic==1.13.1
 psycopg2-binary==2.9.9
 
 # PDF / OCR / Tables
-camelot-py[cv]==0.11.0
+camelot-py==0.11.0
 pdfplumber==0.10.3
 pdf2image==1.17.0
 pytesseract==0.3.10
