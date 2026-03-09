@@ -47,3 +47,6 @@ backend/data/temp/
 test_data_sets*
 backend/test_data_sets*
 frontend_error.log
+backend/train_output.log
+backend/test_results.log
+backend/test_results.txt
