@@ -183,12 +183,36 @@ class ScoringEngine:
         ratios: dict,
         research_risk: float = 0.0,
         reconciliation_risk: bool = False,
+        bank_data: dict = None,
+        mca_data: dict = None,
     ) -> ScoringResult:
         result = ScoringResult()
         result.financial_ratios = ratios
 
         # Rule checks first
         flags, auto_reject, reject_reason = _rule_checks(ratios)
+        
+        # Bank & MCA Advanced Checks
+        if bank_data:
+            unusual = bank_data.get("unusual_transactions", [])
+            bounces = [u for u in unusual if "Bounce" in u.get("flag", "")]
+            if len(bounces) > 3:
+                flags.append(f"{len(bounces)} bounced cheques detected: High Default Risk")
+                auto_reject = True
+                reject_reason = "Multiple Bounced Cheques"
+            elif len(bounces) > 0:
+                flags.append(f"⚠ {len(bounces)} bounced cheques detected")
+                
+            non_bounces = [u for u in unusual if "Bounce" not in u.get("flag", "")]
+            if non_bounces:
+                flags.append(f"⚠ {len(non_bounces)} unusually large transactions flagged for manual review")
+
+        if mca_data:
+            if not mca_data.get("is_compliant", True):
+                flags.append("Company is non-compliant with MCA filings (High Governance Risk)")
+            if mca_data.get("last_agm_date") == "Not Filed":
+                flags.append("Annual General Meeting (AGM) returns not filed - Transparency Alert")
+
         result.rule_flags = flags
         result.auto_reject = auto_reject
         result.reject_reason = reject_reason

@@ -106,6 +106,8 @@ async def _run_pipeline(app_id: str, db: AsyncSession):
             ratios=ratios,
             research_risk=research_data.get("overall_research_risk", 0),
             reconciliation_risk=recon_data.get("risk_flag", False),
+            bank_data=bank_data,
+            mca_data=research_data.get("mca", {}),
         )
         scoring_dict = scoring_result_to_dict(scoring)
 
@@ -119,6 +121,7 @@ async def _run_pipeline(app_id: str, db: AsyncSession):
             auto_reject=scoring.auto_reject,
             reject_reason=scoring.reject_reason,
             rule_flags=scoring.rule_flags,
+            emi_capacity=bank_data.get("emi_capacity", 0.0),
         )
         loan_dict = loan_decision_to_dict(loan)
 

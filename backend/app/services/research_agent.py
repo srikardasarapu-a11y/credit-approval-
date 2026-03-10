@@ -38,7 +38,11 @@ class MCAData:
     charges: list = field(default_factory=list)
     date_of_incorporation: str = ""
     paid_up_capital: float = 0.0
+    authorized_capital: float = 0.0
     status: str = ""
+    is_compliant: bool = True
+    last_agm_date: str = ""
+    last_bs_date: str = ""
 
 
 @dataclass
@@ -155,11 +159,15 @@ async def _fetch_mca(company_name: str, cin: Optional[str]) -> Optional[MCAData]
                 charges=d.get("charges", []),
                 date_of_incorporation=d.get("date_of_incorporation", ""),
                 paid_up_capital=float(d.get("paid_up_capital", 0)),
+                authorized_capital=float(d.get("authorized_capital", 0)),
                 status=d.get("status", ""),
+                is_compliant=d.get("compliance_status", True),
+                last_agm_date=d.get("last_agm_date", ""),
+                last_bs_date=d.get("last_bs_date", "")
             )
     except Exception as e:
         logger.warning(f"CompData API error: {e}")
-        return MCAData(company_name=company_name, status="Unavailable")
+        return MCAData(company_name=company_name, status="Unavailable", is_compliant=False)
 
 
 def _mca_risk(mca: Optional[MCAData]) -> tuple[float, list[str]]:
@@ -173,6 +181,12 @@ def _mca_risk(mca: Optional[MCAData]) -> tuple[float, list[str]]:
     if mca.status and mca.status.lower() not in ("active", ""):
         flags.append(f"Company status: {mca.status}")
         score += 0.3
+    if not mca.is_compliant:
+        flags.append("Company is non-compliant with MCA filings (High Governance Risk)")
+        score += 0.4
+    if mca.last_agm_date == "Not Filed":
+        flags.append("Annual General Meeting (AGM) returns not filed - Transparency Alert")
+        score += 0.2
     return min(score, 1.0), flags
 
 
@@ -262,6 +276,8 @@ def research_to_dict(result: ResearchResult) -> dict:
             "status": mca.status if mca else "",
             "directors": mca.directors if mca else [],
             "charges": mca.charges if mca else [],
+            "is_compliant": mca.is_compliant if mca else False,
+            "last_agm_date": mca.last_agm_date if mca else "",
         } if mca else {},
         "mca_risk_score": result.mca_risk_score,
         "mca_flags": result.mca_flags,

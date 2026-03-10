@@ -138,10 +138,14 @@ def generate_cam(
         ("Character",
          f"Company: {company_name}. Research risk score: {research_data.get('overall_research_risk', 0):.2f}/1.0. "
          f"Court cases: {len(research_data.get('court_cases', []))}. "
-         f"MCA status: {research_data.get('mca', {}).get('status', 'N/A')}."),
+         f"MCA status: {research_data.get('mca', {}).get('status', 'N/A')}. "
+         f"Compliant: {'Yes' if research_data.get('mca', {}).get('is_compliant', True) else 'NO (High Risk)'}. "
+         f"Last AGM: {research_data.get('mca', {}).get('last_agm_date', 'N/A')}."),
         ("Capacity",
          f"DSCR: {ratios.get('dscr', 0):.2f}. Interest Coverage: {ratios.get('interest_coverage', 0):.2f}. "
-         f"Avg monthly bank credits: ₹{bank_data.get('average_monthly_credit', 0):,.0f}."),
+         f"Avg monthly bank credits: ₹{bank_data.get('average_monthly_credit', 0):,.0f}. "
+         f"Avg Balance: ₹{bank_data.get('average_balance', 0):,.0f}. "
+         f"Est. EMIs: ₹{bank_data.get('emi_capacity', 0):,.0f}."),
         ("Capital",
          f"Equity: ₹{ratios.get('equity', 0):,.0f}. D/E ratio: {ratios.get('de_ratio', 0):.2f}. "
          f"Net profit (ITR): ₹{itr_data.get('net_profit', 0):,.0f}."),
@@ -200,6 +204,11 @@ def generate_cam(
 
     _add_section_heading(doc, "3.3 External Research", level=2)
     doc.add_paragraph(research_data.get("news_summary", "") + "\n" + research_data.get("legal_summary", ""))
+    
+    mca_info = research_data.get("mca", {})
+    if mca_info:
+        doc.add_paragraph(f"• Authorized Capital: ₹{mca_info.get('authorized_capital', 0):,.0f} | Paid-Up: ₹{mca_info.get('paid_up_capital', 0):,.0f}", style="List Bullet")
+        
     if research_data.get("mca_flags"):
         for flag in research_data["mca_flags"]:
             doc.add_paragraph(f"• {flag}", style="List Bullet")

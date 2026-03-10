@@ -59,11 +59,12 @@ def compute_loan_decision(
     auto_reject: bool = False,
     reject_reason: str = "",
     rule_flags: list = None,
+    emi_capacity: float = 0.0,
 ) -> LoanDecision:
     """
     Determine loan amount and pricing.
 
-    Cash-flow capacity: 50% of annualised average monthly bank credits.
+    Cash-flow capacity: 50% of annualised average monthly bank credits minus existing EMIs.
     This is a conservative multiplier that ensures DSCR headroom.
     """
     decision = LoanDecision()
@@ -82,9 +83,11 @@ def compute_loan_decision(
 
     # Cash-flow capacity
     annual_capacity = average_monthly_credit * 12
-    decision.cash_flow_capacity = round(annual_capacity * 0.50, 2)
+    annual_emi = emi_capacity * 12
+    available_capacity = max((annual_capacity * 0.50) - annual_emi, 0.0)
+    decision.cash_flow_capacity = round(available_capacity, 2)
     decision.reasons.append(
-        f"Cash-flow capacity: 50% × ₹{average_monthly_credit:,.0f}/mo × 12 = ₹{decision.cash_flow_capacity:,.0f}"
+        f"Cash-flow capacity: (50% × ₹{average_monthly_credit:,.0f}/mo × 12) - ₹{annual_emi:,.0f} existing EMIs = ₹{decision.cash_flow_capacity:,.0f}"
     )
 
     # Collateral LTV limit

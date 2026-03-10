@@ -32,6 +32,9 @@ class BankData:
     average_monthly_credit: float = 0.0
     opening_balance: float = 0.0
     closing_balance: float = 0.0
+    emi_capacity: float = 0.0
+    average_balance: float = 0.0
+    unusual_transactions: list = field(default_factory=list)
 
 
 CREDIT_KEYWORDS = ["cr", "credit", "deposit", "transfer in", "neft cr", "imps cr", "rtgs cr", "salary"]
@@ -172,6 +175,31 @@ def parse_bank_pdf(file_path: str) -> BankData:
         bank.opening_balance = transactions[0].get("balance", 0)
         bank.closing_balance = transactions[-1].get("balance", 0)
 
+    # --- New Advanced Metrics ---
+    # Average Balance
+    balances = [t.get("balance", 0) for t in transactions if t.get("balance", 0) > 0]
+    bank.average_balance = sum(balances) / len(balances) if balances else 0.0
+
+    # EMI Capacity (sum of EMI / Loan debits)
+    emi_txns = [t["amount"] for t in transactions if t["type"] == "debit" and any(k in str(t.get("narration", "")).lower() for k in ["emi", "loan", "repayment", "finance"])]
+    bank.emi_capacity = sum(emi_txns) / n_months if emi_txns else 0.0
+
+    # Unusual Transactions (Bounces & Massive transfers)
+    unusual = []
+    # Bounces
+    for t in transactions:
+        narr = str(t.get("narration", "")).lower()
+        if any(k in narr for k in ["bounce", "return", "chq ret", "insufficient", "penalty"]):
+            unusual.append({**t, "flag": "Bounced Cheque / Failed Txn / Penalty"})
+
+    # Large unusual transfers
+    avg_debit = bank.total_debits / max(sum(1 for t in transactions if t["type"] == "debit"), 1)
+    for t in transactions:
+        if t["type"] == "debit" and t["amount"] > (avg_debit * 4) and t["amount"] > 50000:
+            unusual.append({**t, "flag": f"Unusually large debit (4x average)"})
+            
+    bank.unusual_transactions = unusual
+
     logger.info(f"Bank parsed: {len(transactions)} transactions, avg monthly credit={bank.average_monthly_credit:.2f}")
     return bank
 
@@ -218,6 +246,9 @@ def bank_data_to_dict(bank: BankData) -> dict:
         "average_monthly_credit": bank.average_monthly_credit,
         "opening_balance": bank.opening_balance,
         "closing_balance": bank.closing_balance,
+        "emi_capacity": bank.emi_capacity,
+        "average_balance": bank.average_balance,
+        "unusual_transactions": bank.unusual_transactions,
         "transaction_count": len(bank.transactions),
         "transactions_sample": bank.transactions[:20],
     }
