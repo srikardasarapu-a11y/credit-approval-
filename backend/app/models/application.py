@@ -1,8 +1,7 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Float, Integer, DateTime, JSON, ForeignKey, Text, Enum as SAEnum
+from sqlalchemy import String, Float, Integer, DateTime, JSON, ForeignKey, Text, Numeric, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
 import enum
 from app.database import Base
 
@@ -55,6 +54,22 @@ class Application(Base):
     interest_rate: Mapped[float | None] = mapped_column(Float)
     loan_decision_reasons: Mapped[list | None] = mapped_column(JSON)
     collateral_value: Mapped[float | None] = mapped_column(Float)
+
+    # --- Advanced Bank Metrics (feat/advanced-bank-metrics) ---
+    # Average balance computed from running-balance carry-forward algorithm
+    average_daily_balance: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    # Mean of balance-after-transaction across all transactions
+    average_transactional_balance: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    # Sum of median amounts across detected recurring debit series
+    emi_estimated_monthly: Mapped[float | None] = mapped_column(Numeric(18, 2), nullable=True)
+    # Detected recurring payment schedule details
+    recurring_payments: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Statistically anomalous transactions (already exists in bank_data JSON, promoted here)
+    unusual_transactions: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Count of flagged unusual transactions
+    unusual_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Count of returned/bounced cheque transactions
+    bounce_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Report
     cam_path: Mapped[str | None] = mapped_column(String(500))

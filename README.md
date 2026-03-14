@@ -9,10 +9,11 @@
 | Module | Description |
 |---|---|
 | 📥 **Data Ingestion** | GST CSV, ITR PDF, Bank Statement PDF parsing with OCR (Tesseract) + Camelot |
+| 🏦 **Advanced Bank Metrics** | Average daily balance, EMI/recurring detection, unusual tx flagging, bounce detection |
 | ⚖️ **Reconciliation** | Monthly GST vs Bank credit comparison with anomaly flagging |
 | 🔎 **Research Agent** | NewsAPI, MCA filings, eCourts case lookup |
-| 📊 **Scoring Engine** | XGBoost ML model + SHAP explanations + rule-based hard gates |
-| 💰 **Loan Decision** | Cash-flow + collateral LTV limit + risk-adjusted rate |
+| 📊 **Scoring Engine** | XGBoost v2 (12 features) + SHAP explanations + rule-based gates (bounce, overleverage, fraud) |
+| 💰 **Loan Decision** | EMI-adjusted cash-flow capacity + collateral LTV + risk-adjusted rate |
 | 📄 **CAM Generation** | DOCX template → PDF with embedded SHAP chart |
 | 🖥 **UI** | Dark-mode React dashboard with charts and drag-drop upload |
 
@@ -76,7 +77,39 @@ python scripts/train_model.py
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 2. Frontend
+### 3. Running Unit Tests
+
+```bash
+cd backend
+python -m pytest tests/ -v -q
+# Expected: 10+ tests pass
+```
+
+### 4. Manual Verification Script
+
+```bash
+cd backend
+python scripts/verify_scoring.py
+# Runs 5 scoring/loan decision cases and prints results
+```
+
+### 5. Feature Importance Report (requires trained v2 model)
+
+```bash
+cd backend
+python scripts/train_model.py          # generates credit_model_v2.pkl
+python scripts/feature_importance_report.py   # prints top-10 SHAP features
+```
+
+---
+
+## Required Local Binaries
+
+| Binary | Purpose | Graceful fallback? |
+|---|---|---|
+| [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) | PDF OCR fallback | ✅ Yes — table extraction used first |
+| [Ghostscript](https://ghostscript.com/) | Camelot PDF table extraction | ✅ Yes — pdfplumber fallback |
+| [LibreOffice](https://www.libreoffice.org/) | PDF export of CAM report (optional) | ✅ Yes — DOCX only |
 
 ```bash
 cd frontend
@@ -115,16 +148,29 @@ Set in `backend/.env`:
 
 ## Scoring Model
 
-The XGBoost model uses 7 features:
-- `dscr` — Debt Service Coverage Ratio
-- `de_ratio` — Debt/Equity
-- `current_ratio` — Current Ratio
-- `interest_coverage` — Interest Coverage
-- `gross_margin` — Gross Profit Margin
-- `log_revenue` — Log of annual revenue
-- `research_risk` — External research risk score (0–1)
+The XGBoost v2 model uses **12 features**:
 
-**Hard rules:** DSCR < 1.0 or negative equity → auto-reject.
+| Feature | Description |
+|---|---|
+| `dscr` | Debt Service Coverage Ratio (EMI-adjusted) |
+| `de_ratio` | Debt/Equity |
+| `current_ratio` | Current Ratio |
+| `interest_coverage` | Interest Coverage |
+| `gross_margin` | Gross Profit Margin |
+| `log_revenue` | Log of annual revenue |
+| `research_risk` | External research risk score (0–1) |
+| `average_daily_balance` | 🆕 Carry-forward daily average balance (₹) |
+| `average_transactional_balance` | 🆕 Mean of balance-after-tx (₹) |
+| `emi_estimated_monthly` | 🆕 Detected monthly EMI burden (₹) |
+| `unusual_count` | 🆕 Count of anomalous transactions |
+| `bounce_count` | 🆕 Count of returned/bounced cheques |
+
+**Hard rules:**
+- DSCR (EMI-adjusted) < 1.0 → auto-reject
+- Negative equity → auto-reject
+- `bounce_count ≥ 3` → auto-reject
+- `unusual_count ≥ 2` and any >5× median → `fraud_suspected` (manual review)
+- `emi / avg_monthly_net > 0.5` → `overleveraged` flag
 
 **Score:** 0–1000. **Grades:** A (≥800) B (≥650) C (≥500) D (≥350) E (<350)
 
